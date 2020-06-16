@@ -1,24 +1,29 @@
-// var firebase = require('firebase');
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
-const firebaseConfig = require("../smartsoumyafirebase.json");
 const Employee = require('../models/employeeModel');
+const Firestore = require('@google-cloud/firestore');
 
-// initialize firebase.
-var firebaseApp = admin.initializeApp({
-    credential: admin.credential.cert(firebaseConfig),
-    databaseURL: "https://smartsoumyaemployeeapi.firebaseio.com"
+const db = new Firestore({
+    projectId: 'fir-test-f739a',
+    keyFilename: './firebase-config.json',
 });
-var database = admin.firestore();
 
 let tmp = new Employee(0, "vipul", "MLEngineer", "10000", "01-01-2020", "PS");
 var employees = [];
 var departments = [];
-employees.push(tmp);
 
 // Show list of employees.
 exports.list_all_employees = function(req, res) {
-   res.json(employees);
+    let result = []
+    db.collection('employees')
+        .get()
+        .then((snapshot) => {
+            snapshot.docs.forEach((doc) => {
+                result.push({ ...doc.data(), _uid: doc.id })
+            });
+            res.json(result);
+        })
+        .catch((err) => {
+            console.log('Error getting employees', err);
+        });
 };
 
 // Add new employees.
@@ -42,29 +47,25 @@ exports.create_new_employees = function(req, res) {
     employees.push(data);
     // add employee to database.
     addEmployeetoDatabase(data, res);
-    res.json(employees);
 }
 
 function addEmployeetoDatabase(data, res) {
-    try {
-        database.collection('items').doc('/' + data.id + '/').create({item: data});
-        return res.status(200).send();
-    } catch (error) {
-        console.log(error);
-        return res.status(500).send(error);
-    }
+    let newEmployeeRef = db.collection('employees').doc();
+    let addEmp = newEmployeeRef.set(JSON.parse(JSON.stringify(data)))
+    addEmp.then(e => {
+        res.json(e);
+    }).catch(e => {
+        console.error(e);
+    })
 }
 // Get the details of specific employee.
 exports.get_employee = function(req,res) {
     let employeeId = req.params.employeesId;
-    let foundEmployee = employees.find(function(employee){
-       return employee.id == employeeId;
-    });
-    if (foundEmployee) {
-        return res.json(foundEmployee);
-    } else {
-        return checkEmployeeExists("Employee", employeeId, res);
-    }
+    db.collection('employees').doc(employeeId).get().then((doc) => {
+        res.json(doc.data())
+    }).catch(e => {
+        res.json({err: `Employee with id ${employeeId} not found`})
+    })
 }
 
 // Update the details of a specific employee.
