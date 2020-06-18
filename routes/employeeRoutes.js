@@ -9,5 +9,6 @@ module.exports = function(app) {
     .put(employeeController.update_employee)
     .delete(employeeController.delete_employee);
 
+  app.route('/employees/salary/:employeesId').put(employeeController.update_increamented_salary)
   app.route('/employees/dept/:deptId').get(employeeController.get_employee_basedon_dept);
 };

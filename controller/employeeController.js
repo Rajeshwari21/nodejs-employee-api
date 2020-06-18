@@ -2,11 +2,10 @@ const Employee = require('../models/employeeModel');
 const Firestore = require('@google-cloud/firestore');
 
 const db = new Firestore({
-    projectId: 'fir-test-f739a',
-    keyFilename: './firebase-config.json',
+    projectId: 'smartsoumyaemployeeapi',
+    keyFilename: './smartsoumyafirebase.json',
 });
 
-let tmp = new Employee(0, "vipul", "MLEngineer", "10000", "01-01-2020", "PS");
 var employees = [];
 var departments = [];
 
@@ -49,6 +48,7 @@ exports.create_new_employees = function(req, res) {
     addEmployeetoDatabase(data, res);
 }
 
+// Helper function to add employee details in the database.
 function addEmployeetoDatabase(data, res) {
     let newEmployeeRef = db.collection('employees').doc();
     let addEmp = newEmployeeRef.set(JSON.parse(JSON.stringify(data)))
@@ -58,6 +58,7 @@ function addEmployeetoDatabase(data, res) {
         console.error(e);
     })
 }
+
 // Get the details of specific employee.
 exports.get_employee = function(req,res) {
     let employeeId = req.params.employeesId;
@@ -70,36 +71,51 @@ exports.get_employee = function(req,res) {
 
 // Update the details of a specific employee.
 exports.update_employee = function(req, res) {
-    let employeeId = parseInt(req.params.employeesId);
+    let employeeId = req.params.employeesId;
     let name = req.body.name;
     let designation = req.body.designation;
-    employees.forEach(function(employee){
-        if (employee.id == employeeId) {
-            if (name) {
-                employee.name = name;
-            }
-            if (designation) {
-                employee.designation = designation;
-            }
-        }
-    });
-    res.json(employees);
+    let updateEmployeeRef = db.collection('employees').doc(employeeId);
+    if (name) {
+        var updateData = updateEmployeeRef.update({name: name});
+    } if (designation) {
+        var updateData = updateEmployeeRef.update({designation: designation});
+    }
+    updateData.then(e => {
+        res.json(e);
+    }).catch(e => {
+        res.json({err: `Employee with id ${employeeId} not updated`})
+    })
+}
+
+// Increament salary of an employee in the system.
+exports.update_increamented_salary = function(req, res) {
+    let employeeId = req.params.employeesId;
+    let increamentedSalary = parseInt(req.body.increamented_salary);
+    if (increamentedSalary) {
+        let employeeRef = db.collection('employees').doc(employeeId);
+        let transaction = db.runTransaction(t => {
+            return t.get(employeeRef)
+              .then(doc => {
+                let actualSalary = parseInt(doc.data().salary);
+                let totalSalary = increamentedSalary + actualSalary;
+                t.update(employeeRef, {salary: totalSalary});
+                res.json({doc: `Salary of Employee with id ${employeeId} is increased.`})
+              }).catch(err => {
+                console.log('Transaction failure:', err);
+              });
+          })
+    }
 }
 
 // Delete the specific employee details.
 exports.delete_employee = function(req, res) {
-    let employeeId = parseInt(req.params.employeesId);
-    let foundEmployee = employees.find(function(employee){
-        return employee.id == employeeId;
-    });
-    if (foundEmployee) {
-        employees = employees.filter(function(employee) {
-            return employee.id !== employeeId;
-        });
-        res.status(200).json(employees);
-    } else {
-        return checkEmployeeExists("Employee", employeeId, res);
-    }   
+    let employeeId = req.params.employeesId;
+    db.collection('employees').doc(employeeId).get().then((doc) => {
+        doc.ref.delete();
+        res.json({doc: `Employee with id ${employeeId} is deleted.`})
+    }).catch(e => {
+        res.json({err: `Employee with id ${employeeId} cannot be deleted.`})
+    })
 }
 
 // Get the employees based on the department.
@@ -136,29 +152,3 @@ const checkEmployeeExists = function (field, id, res) {
         message: `${field} with id ${id} not found`,
     });
 } 
-
-
-// {
-    // "id": 1,
-    // "name": "Pavan",
-    // "designation": "Intern",
-    // "salary": "3000",
-    // "hire_date": "02-01-2020",
-    // "dept": "Intern"
-// },
-// {
-//     "id": 2,
-//     "name": "Tejas",
-//     "designation": "Developer",
-//     "salary": "8000",
-//     "hire_date": "02-01-2020",
-//     "dept": "PS"
-// },
-// {
-//     "id": 3,
-//     "name": "Sonal",
-//     "designation": "FE dev",
-//     "salary": "6000",
-//     "hire_date": "02-01-2020",
-//     "dept": "PS"
-// }
