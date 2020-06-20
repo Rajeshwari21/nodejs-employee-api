@@ -7,7 +7,6 @@ const db = new Firestore({
 });
 
 var employees = [];
-var departments = [];
 
 // Show list of employees.
 exports.list_all_employees = function(req, res) {
@@ -95,15 +94,15 @@ exports.update_increamented_salary = function(req, res) {
         let employeeRef = db.collection('employees').doc(employeeId);
         let transaction = db.runTransaction(t => {
             return t.get(employeeRef)
-              .then(doc => {
-                let actualSalary = parseInt(doc.data().salary);
-                let totalSalary = increamentedSalary + actualSalary;
-                t.update(employeeRef, {salary: totalSalary});
-                res.json({doc: `Salary of Employee with id ${employeeId} is increased.`})
-              }).catch(err => {
-                console.log('Transaction failure:', err);
-              });
-          })
+                .then(doc => {
+                    let actualSalary = parseInt(doc.data().salary);
+                    let totalSalary = increamentedSalary + actualSalary;
+                    t.update(employeeRef, {salary: totalSalary});
+                    res.json({doc: `Salary of Employee with id ${employeeId} is increased.`})
+                }).catch(err => {
+                    console.log('Transaction failure:', err);
+                });
+        })
     }
 }
 
@@ -120,22 +119,19 @@ exports.delete_employee = function(req, res) {
 
 // Get the employees based on the department.
 exports.get_employee_basedon_dept = function(req, res) {
+    let departments = [];
     let dept = req.params.deptId;
-    let foundDept = employees.find(function(employee){
-        return employee.dept == dept;
-    });
-    if (foundDept) {
-        employees.forEach(function(employee) {
+    employees.forEach(function(employee) {
+        if (employee.dept === dept) {
             departments.push(employee);
-        });
-        departments = departments.filter(function(employeeDepartment){
-            if (employeeDepartment.dept === dept) {
-                return employeeDepartment;
-            } 
-        });
+        }
+    });
+    if (departments.length > 0) {
         res.status(200).json(departments);
     } else {
-        return checkEmployeeExists("Department", dept, res);
+        res.status(404).send({
+            message: 'Must provide a valid department.',
+        });
     }
 }
 
